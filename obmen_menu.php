@@ -1291,35 +1291,32 @@ if (isset($_GET['otpravka'])) {
     if (time() > $const->dttime_copy_BD) {
         backup_database_tables('*');
         $const->save_const('dttime_copy_BD', time() + (7 * 24 * 60 * 60));
+    }
 
+    // удалить все доки старше 93 -а дней три месяца
+    //$txt_sql = "DELETE FROM  `DocHd` WHERE (TO_DAYS(NOW()) - TO_DAYS(`DocHd`.`DataDoc`) > 93 )  ";
+    // и не счет
+    $txt_sql = "DELETE * FROM `DocHd` WHERE (TO_DAYS(NOW()) - TO_DAYS(`DocHd`.`DataDoc`) > 93 ) and `VidDoc_id` <> 2";
 
-        // удалить все доки старше 93 -а дней три месяца
-        //$txt_sql = "DELETE FROM  `DocHd` WHERE (TO_DAYS(NOW()) - TO_DAYS(`DocHd`.`DataDoc`) > 93 )  ";
-        // и не счет
-        $txt_sql = "SELECT * FROM `DocHd` WHERE (TO_DAYS(NOW()) - TO_DAYS(`DocHd`.`DataDoc`) > 93 ) and `VidDoc_id` <> 2";
-       
-        $sql     = mysql_query($txt_sql, $db);
-        
-        // Все записи без родителя
-        $txt_sql = "DELETE `DocTab`
+    $sql = mysql_query($txt_sql, $db);
+
+    // Все записи без родителя
+    $txt_sql = "DELETE `DocTab`
                     FROM `DocTab`
                     LEFT JOIN `DocHd` ON `DocHd`.`id` = `DocTab`.`DocHd_id`
                     WHERE (`DocHd`.`id` is null)";
 
-        $sql = mysql_query($txt_sql, $db);
+    $sql = mysql_query($txt_sql, $db);
 
 
-        // Удалим записи из таблицы обмена
-        $txt_sql = "DELETE FROM `log_obmen`
+    // Удалим записи из таблицы обмена
+    $txt_sql = "DELETE FROM `log_obmen`
                         WHERE ( TO_DAYS( NOW( ) ) - TO_DAYS( `log_obmen`.`datetime` ) >7 ) ";
-        $sql = mysql_query($txt_sql, $db);
+    $sql = mysql_query($txt_sql, $db);
 
-    }
-
-
-
-
-
+    $txt_sql = " DELETE FROM `log_price`
+                        WHERE ( TO_DAYS( NOW( ) ) - TO_DAYS( `log_price`.`date_edit` ) >30 ) ";
+    $sql = mysql_query($txt_sql, $db);
 }
 
 ?>
