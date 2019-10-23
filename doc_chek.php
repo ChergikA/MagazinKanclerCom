@@ -78,15 +78,16 @@ if (isset($_GET['id_doc'])) { //
 
     //document.location = "doc_chek.php?id_doc=" + iddoc + "&prn=yes"+ "&opt=yes";
     if (isset($_GET['prn'])) {
+        $prnCt = prn_catalog();
         $prn = $_GET['prn'];
         if ($prn == 'yes') {
             if (isset($_GET['opt'])) { // чеки на лазерный файл fods
                 $opt = $_GET['opt'];
                 if($opt==='yes'){
-                   include("prn/prn_checkopt.php");
+                   include($prnCt . "/prn_checkopt.php");
                    prnxml($id_doc);
                 }  else {
-                    include("prn/prn_check.php");
+                    include($prnCt . "/prn_check.php");
                     prnxml($id_doc);    
                 }
             } else {                    // чековый принтер

@@ -202,26 +202,27 @@ if (isset($_GET['id_doc'])) {
 
 function prn($id_doc, $prn, $no_nds, $nomdoc) {
     global $dwnl;
+    $prnCt = prn_catalog();
 //$prn  = prn_chet save_chet prn_nkl save_nkl
     if ($prn == 'prn_chet') {
         if($no_nds == 0){
-            include("prn/prn_schetnds.php");
+            include( $prnCt . "/prn_schetnds.php");
         }  else {
-            include("prn/prn_schet.php");
+            include( $prnCt . "/prn_schet.php");
         }
         prnxml($id_doc,'');
     } elseif ($prn == 'prn_nkl') {
-       include("prn/prn_nakladna.php"); 
+       include($prnCt . "/prn_nakladna.php"); 
        prnxml($id_doc,'');
     }elseif ($prn == 'save_nkl') {
-       include("prn/prn_nakladna.php"); 
+       include($prnCt . "/prn_nakladna.php"); 
        prnxml($id_doc,'nakladna');
        $dwnl='nakl';
     }elseif ($prn == 'save_chet') {
          if($no_nds == 0){
-            include("prn/prn_schetnds.php");
+            include($prnCt . "/prn_schetnds.php");
         }  else {
-            include("prn/prn_schet.php");
+            include($prnCt . "/prn_schet.php");
         }
         prnxml($id_doc,'schet');
         $dwnl='schet';

@@ -1,185 +1,7 @@
-<?php
-
-
-//*********************** baba-jaga@i.ua ********************************
-// добавляем в файл хмл нужные секции
-function addinxml($num, $tovar, $cena, $kvo, $sum, $ed ) {
-
-      $ro = 'ro3';
-    if(strlen($tovar)> 43) {
-        $ro = 'ro6';
-    }
-    
-  $str = '    <table:table-row table:style-name="'.$ro.'">  
-     <table:table-cell office:value-type="string">
-      <text:p>'.$num.'</text:p>
-     </table:table-cell>
-     <table:table-cell table:style-name="ce10" office:value-type="string" table:number-columns-spanned="3" table:number-rows-spanned="1">
-      <text:p>'.$tovar.'</text:p>
-     </table:table-cell>
-     <table:covered-table-cell/>
-     <table:covered-table-cell table:style-name="ce14"/>
-     <table:table-cell table:style-name="ce17" office:value-type="string">
-      <text:p>'.$ed.'</text:p>
-     </table:table-cell>
-     <table:table-cell table:style-name="ce17" office:value-type="string">
-      <text:p>'.$kvo.'</text:p>
-     </table:table-cell>
-     <table:table-cell table:style-name="ce19" office:value-type="string">
-      <text:p>'.$cena.'</text:p>
-     </table:table-cell>
-     <table:table-cell table:style-name="ce17" office:value-type="string">
-      <text:p>'.$sum.'</text:p>
-     </table:table-cell>
-     <table:table-cell/>
-     <table:table-cell table:style-name="ce5" office:value-type="string">
-      <text:p>'.$num.'</text:p>
-     </table:table-cell>
-     <table:table-cell table:style-name="ce10" office:value-type="string" table:number-columns-spanned="3" table:number-rows-spanned="1">
-      <text:p>'.$tovar.'</text:p>
-     </table:table-cell>
-     <table:covered-table-cell table:number-columns-repeated="2"/>
-     <table:table-cell office:value-type="string">
-      <text:p>'.$ed.'</text:p>
-     </table:table-cell>
-     <table:table-cell table:style-name="ce17" office:value-type="string">
-      <text:p>'.$kvo.'</text:p>
-     </table:table-cell>
-     <table:table-cell table:style-name="ce19" office:value-type="string">
-      <text:p>'.$cena.'</text:p>
-     </table:table-cell>
-     <table:table-cell table:style-name="ce17" office:value-type="string">
-      <text:p>'.$sum.'</text:p>
-     </table:table-cell>
-     <table:table-cell/>
-    </table:table-row>';  
-    
-    $str = cnv_($str);
-    
-
-    return $str;
-}
-
-//*********************** baba-jaga@i.ua ********************************
-// откр зап сохр
-function prnxml($id_doc, $f_name){
-
-    if($f_name == '') $f_name = 'cennik_sr'; // исторически чтоб не переделывать батник
-    $handle = fopen("data/$f_name.fods", 'w');
-    
-    $no_simvols = array("\"", "'", "»", "«", "&", ">", "<", "#9675;");
-
-    fwrite($handle, strfile('start', $id_doc, 0, 0, 0, 0  ));
-    
-    
-
-    $txt_sql = "SELECT  `DocTab`.`id` AS idstr,  `DocTab`.`nomstr` ,  `Tovar`.`Kod` ,  
-                    `Tovar`.`Tovar` ,  `Tovar`.`ed_izm` ,  `DocTab`.`Cena` ,
-                     `DocTab`.`Kvo` , `DocTab`.`Skidka` ,  `DocHd`.`SumDoc` 
-                FROM  `DocTab` 
-                LEFT JOIN  `DocHd` ON  `DocTab`.`DocHd_id` =  `DocHd`.`id` 
-                LEFT JOIN  `Tovar` ON  `DocTab`.`Tovar_id` =  `Tovar`.`id_tovar` 
-                WHERE ( `DocTab`.`DocHd_id` =$id_doc AND  `DocTab`.`Kvo` >0 )
-                ORDER BY  `DocTab`.`id` ASC ";
-    
-    
-    $sql = cls_my_sql::tbl_sql($txt_sql);
-
-    $sum_sum = 0;
-    $skidka = 0;
-    $sum_s_nds =0;
-
-    while ($srt_arr = mysql_fetch_array($sql, MYSQL_BOTH)) {
-        $nom_str = $srt_arr['nomstr'];
-        $cena = $srt_arr['Cena'] * (1 - $srt_arr['Skidka'] / 100); // цена со скидкой
-        $cena = $cena - $cena / 6; //  цена без ндс
-        $cena = sprintf('%.2f', $cena);
-        $sum = sprintf("%.2f", $cena * $srt_arr['Kvo']);
-        // $sum = $cena * $srt_arr['Kvo'];
-        $sum_sum = $sum_sum + $sum; // сумма без НДС
-        $skidka = $srt_arr['Skidka'];
-        $ed = $srt_arr['ed_izm'];
-        if ($ed == '')
-            $ed = 'шт.';
-        $nm = $srt_arr['Tovar'];
-        $nm = str_replace($no_simvols, "", $nm);
-        $sum_s_nds =   $srt_arr['SumDoc'];   
-        $str = addinxml($nom_str, $nm, $cena, $srt_arr['Kvo'], $sum, $ed );
-        fwrite($handle, $str);
-    }    
-    // $sum_itog  = sprintf("%.2f",$sum_itog);
-    $sum_sum = sprintf("%.2f", $sum_sum);
-    //$sum_s_nds = sprintf("%.2f", $sum_sum * 1.2);
-    $sum_nds = sprintf("%.2f", $sum_s_nds - $sum_sum);
-    
-
-    fwrite($handle, strfile('end', $id_doc, $sum_sum, $sum_nds, $sum_s_nds, $skidka  ));
-    fclose($handle);
-    chmod("data/$f_name.fods", 0777);
-
-    // prn_na_ftp();
-    // только ос ubuntu
-    // в меню Ubuntu "Запуск приложений" кладем скрипт, который мониторит наличие файла prn_hkod.fods
-    // если есть  то выполняем :
-    // libreoffice -pt "TSC_TDP-225" "/home/san/webServer/km/data/hkod.fods"
-    // и удаляем его. и мониторим дальше
-}
-
-function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
-    
-//    $my_const = new cls_my_const();
-//    $skl = $my_const->magazin;
-    $txtskidka = '';
-    if ($skidka != 0) {
-        $txtskidka  = 'Цiна вказана з урахуванням знижки <text:s/>'.$skidka.'%:';
-    }
-
-        // получим данные для шапки
-     $txt_sql = "SELECT `firms`.`name_firm`, `firms`.`name_full`, `firms`.`tel_firm`, `firms`.`INN`, `firms`.`nom_svid`,
-                    `firms`.`name_bank`, `firms`.`r_schet`, `firms`.`mfo_bank`, `firms`.`okpo`, `firms`.`adres`,
-                    `Klient`.`name_klient`,`DocHd`.`id`,`DocHd`.`nomDoc`,
-                    `DocHd`.`DataDoc`, `DocHd`.`SumDoc`, `DocHd`.`flg_optPrice` , `StatusDoc`.`nameStatus`,
-                    `DocHd`.`SkidkaProcent`, `DocHd`.`Pometka`, `VidDoc`.`name_doc`, `users`.`full_name`
-                FROM `firms`
-                    LEFT JOIN `DocHd`     ON `firms`.`id` = `DocHd`.`firms_id`
-                    LEFT JOIN `Klient`    ON `DocHd`.`Klient_id` = `Klient`.`id_`
-                    LEFT JOIN `VidDoc`    ON `DocHd`.`VidDoc_id` = `VidDoc`.`Id` 
-                    LEFT JOIN `StatusDoc` ON `DocHd`.`statusDoc` = `StatusDoc`.`idStatus`
-                    LEFT JOIN `users`     ON `DocHd`.`users_id` = `users`.`id`
-                WHERE (`DocHd`.`id` = " . $id_doc . " ) ";
-
-//echo '<br>' . $txt_sql.'<br>'; 
-     
-    //$sql     = mysql_query($txt_sql, $db);
-    $s_arr   = cls_my_sql::const_sql($txt_sql); // mysql_fetch_array($sql, MYSQL_BOTH);
-    $nm_klient = $s_arr['name_klient'];
-    $nom_doc  = $s_arr['nomDoc'] ;
-    $phpdate = strtotime( $s_arr['DataDoc'] );
-    $data_doc=date ("d.m.y", $phpdate);
-    
-    //ЗКПО: 39473754 <text:s text:c="2"/>тел.: (0522) 322612
-    $rekv_nalog1 = 'ЗКПО:' . $s_arr['okpo'] . '<text:s text:c="2"/>тел.:' . $s_arr['tel_firm']  ;
-
-        //ІПН : <text:s/>394737511235, <text:s/>номер свідоцтва:
-    $rekv_nalog2 = '';
-    if($s_arr['INN']      !=  '')      $rekv_nalog2 .= ', IПН:' . $s_arr['INN'];
-    if($s_arr['nom_svid'] !=  '')      $rekv_nalog2 .= ', номер свідоцтва:' . $s_arr['nom_svid'];
-    
-    //Адреса: м. Кiровоград, вул. Велика Перспективна 17
-    $rekv_nalog3 = 'Адреса: ' .  $s_arr['adres']  ;
-    
-    
-    //echo '<br>' . $rekv_nalog.'<br>';
-    
-    $rekv_bank1 = 'Платіжні реквізити: '. $s_arr['name_bank'] . '  МФО: ' . $s_arr['mfo_bank'] ;
-    $rekv_bank2 =  ' p/р: ' . $s_arr['r_schet'] ;
-     //	Платіжні реквізити: ПАТ КБ "ПРИВАТБАНК"   МФО: 305299 Р/р: 26003050242818 
-    //echo '<br>' . $rekv_bank.'<br>';
-    
-   $start = '<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 
 <office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" xmlns:number="urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0" xmlns:presentation="urn:oasis:names:tc:opendocument:xmlns:presentation:1.0" xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" xmlns:chart="urn:oasis:names:tc:opendocument:xmlns:chart:1.0" xmlns:dr3d="urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0" xmlns:math="http://www.w3.org/1998/Math/MathML" xmlns:form="urn:oasis:names:tc:opendocument:xmlns:form:1.0" xmlns:script="urn:oasis:names:tc:opendocument:xmlns:script:1.0" xmlns:config="urn:oasis:names:tc:opendocument:xmlns:config:1.0" xmlns:ooo="http://openoffice.org/2004/office" xmlns:ooow="http://openoffice.org/2004/writer" xmlns:oooc="http://openoffice.org/2004/calc" xmlns:dom="http://www.w3.org/2001/xml-events" xmlns:xforms="http://www.w3.org/2002/xforms" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:rpt="http://openoffice.org/2005/report" xmlns:of="urn:oasis:names:tc:opendocument:xmlns:of:1.2" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:grddl="http://www.w3.org/2003/g/data-view#" xmlns:tableooo="http://openoffice.org/2009/table" xmlns:field="urn:openoffice:names:experimental:ooo-ms-interop:xmlns:field:1.0" xmlns:formx="urn:openoffice:names:experimental:ooxml-odf-interop:xmlns:form:1.0" xmlns:css3t="http://www.w3.org/TR/css3-text/" office:version="1.2" office:mimetype="application/vnd.oasis.opendocument.spreadsheet">
- <office:meta><dc:title>Печать счет c НДС</dc:title><meta:generator>LibreOffice/3.5$Linux_X86_64 LibreOffice_project/350m1$Build-2</meta:generator><meta:document-statistic meta:table-count="1" meta:cell-count="162" meta:object-count="0"/><meta:user-defined meta:name="ProgId">Excel.Sheet</meta:user-defined></office:meta>
+ <office:meta><dc:title>РџРµС‡Р°С‚СЊ СЃС‡РµС‚ c РќР”РЎ</dc:title><meta:generator>LibreOffice/3.5$Linux_X86_64 LibreOffice_project/350m1$Build-2</meta:generator><meta:document-statistic meta:table-count="1" meta:cell-count="162" meta:object-count="0"/><meta:user-defined meta:name="ProgId">Excel.Sheet</meta:user-defined></office:meta>
  <office:settings>
   <config:config-item-set config:name="ooo:view-settings">
    <config:config-item config:name="VisibleAreaTop" config:type="int">0</config:config-item>
@@ -190,7 +12,7 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
     <config:config-item-map-entry>
      <config:config-item config:name="ViewId" config:type="string">view1</config:config-item>
      <config:config-item-map-named config:name="Tables">
-      <config:config-item-map-entry config:name="Лист1">
+      <config:config-item-map-entry config:name="Р›РёСЃС‚1">
        <config:config-item config:name="CursorPositionX" config:type="int">1</config:config-item>
        <config:config-item config:name="CursorPositionY" config:type="int">11</config:config-item>
        <config:config-item config:name="HorizontalSplitMode" config:type="short">0</config:config-item>
@@ -208,7 +30,7 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
        <config:config-item config:name="ShowGrid" config:type="boolean">true</config:config-item>
       </config:config-item-map-entry>
      </config:config-item-map-named>
-     <config:config-item config:name="ActiveTable" config:type="string">Лист1</config:config-item>
+     <config:config-item config:name="ActiveTable" config:type="string">Р›РёСЃС‚1</config:config-item>
      <config:config-item config:name="HorizontalScrollbarWidth" config:type="int">270</config:config-item>
      <config:config-item config:name="ZoomType" config:type="short">0</config:config-item>
      <config:config-item config:name="ZoomValue" config:type="int">100</config:config-item>
@@ -295,14 +117,14 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
   <number:currency-style style:name="N108P0" style:volatile="true">
    <number:number number:decimal-places="2" number:min-integer-digits="1" number:grouping="true"/>
    <number:text> </number:text>
-   <number:currency-symbol number:language="ru" number:country="RU">руб.</number:currency-symbol>
+   <number:currency-symbol number:language="ru" number:country="RU">СЂСѓР±.</number:currency-symbol>
   </number:currency-style>
   <number:currency-style style:name="N108">
    <style:text-properties fo:color="#ff0000"/>
    <number:text>-</number:text>
    <number:number number:decimal-places="2" number:min-integer-digits="1" number:grouping="true"/>
    <number:text> </number:text>
-   <number:currency-symbol number:language="ru" number:country="RU">руб.</number:currency-symbol>
+   <number:currency-symbol number:language="ru" number:country="RU">СЂСѓР±.</number:currency-symbol>
    <style:map style:condition="value()&gt;=0" style:apply-style-name="N108P0"/>
   </number:currency-style>
   <style:style style:name="Default" style:family="table-cell">
@@ -524,7 +346,7 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
    </style:header>
    <style:header-left style:display="false"/>
    <style:footer style:display="false">
-    <text:p>Страница <text:page-number>1</text:page-number></text:p>
+    <text:p>РЎС‚СЂР°РЅРёС†Р° <text:page-number>1</text:page-number></text:p>
    </style:footer>
    <style:footer-left style:display="false"/>
   </style:master-page>
@@ -539,14 +361,14 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
    </style:header>
    <style:header-left style:display="false"/>
    <style:footer>
-    <text:p>Страница <text:page-number>1</text:page-number> / <text:page-count>99</text:page-count></text:p>
+    <text:p>РЎС‚СЂР°РЅРёС†Р° <text:page-number>1</text:page-number> / <text:page-count>99</text:page-count></text:p>
    </style:footer>
    <style:footer-left style:display="false"/>
   </style:master-page>
  </office:master-styles>
  <office:body>
   <office:spreadsheet>
-   <table:table table:name="Лист1" table:style-name="ta1">
+   <table:table table:name="Р›РёСЃС‚1" table:style-name="ta1">
     <table:table-column table:style-name="co1" table:default-cell-style-name="ce5"/>
     <table:table-column table:style-name="co2" table:default-cell-style-name="Default"/>
     <table:table-column table:style-name="co3" table:default-cell-style-name="ce14"/>
@@ -566,20 +388,20 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
     <table:table-column table:style-name="co3" table:default-cell-style-name="ce6"/>
     <table:table-row table:style-name="ro1">
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="2" table:number-rows-spanned="1">
-      <text:p>Постачальник:</text:p>
+      <text:p>РџРѕСЃС‚Р°С‡Р°Р»СЊРЅРёРє:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:style-name="ce7"/>
      <table:table-cell table:style-name="ce11" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$s_arr['name_full'].'</text:p>
+      <text:p>РўРѕРІР°СЂРёСЃС‚РІРѕ Р· РѕР±РјРµР¶РµРЅРѕСЋ РІiРґРїРѕРІiРґР°Р»СЊРЅiСЃС‚СЋ " IРЅРїСЂР°Р№Рј"</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="5" table:style-name="ce7"/>
      <table:table-cell table:style-name="ce21"/>
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="2" table:number-rows-spanned="1">
-      <text:p>Постачальник:</text:p>
+      <text:p>РџРѕСЃС‚Р°С‡Р°Р»СЊРЅРёРє:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:style-name="ce7"/>
      <table:table-cell table:style-name="ce11" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$s_arr['name_full'].'</text:p>
+      <text:p>РўРѕРІР°СЂРёСЃС‚РІРѕ Р· РѕР±РјРµР¶РµРЅРѕСЋ РІiРґРїРѕРІiРґР°Р»СЊРЅiСЃС‚СЋ " IРЅРїСЂР°Р№Рј"</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="5" table:style-name="ce7"/>
      <table:table-cell/>
@@ -588,13 +410,13 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="2" table:number-rows-spanned="1"/>
      <table:covered-table-cell/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>Є платником податку на прибуток на загальних підставах</text:p>
+      <text:p>Р„ РїР»Р°С‚РЅРёРєРѕРј РїРѕРґР°С‚РєСѓ РЅР° РїСЂРёР±СѓС‚РѕРє РЅР° Р·Р°РіР°Р»СЊРЅРёС… РїС–РґСЃС‚Р°РІР°С…</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="5"/>
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="3" table:number-rows-spanned="1"/>
      <table:covered-table-cell table:number-columns-repeated="2"/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>Є платником податку на прибуток на загальних підставах</text:p>
+      <text:p>Р„ РїР»Р°С‚РЅРёРєРѕРј РїРѕРґР°С‚РєСѓ РЅР° РїСЂРёР±СѓС‚РѕРє РЅР° Р·Р°РіР°Р»СЊРЅРёС… РїС–РґСЃС‚Р°РІР°С…</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="2" table:style-name="Default"/>
      <table:covered-table-cell table:number-columns-repeated="3"/>
@@ -604,13 +426,13 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="2" table:number-rows-spanned="1"/>
      <table:covered-table-cell/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$rekv_nalog1.'</text:p>
+      <text:p>Р—РљРџРћ:39473754<text:s text:c="2"/>С‚РµР».:(0522) 322612</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="5"/>
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="3" table:number-rows-spanned="1"/>
      <table:covered-table-cell table:number-columns-repeated="2"/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$rekv_nalog1.'</text:p>
+      <text:p>Р—РљРџРћ:39473754<text:s text:c="2"/>С‚РµР».:(0522) 322612</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="2" table:style-name="Default"/>
      <table:covered-table-cell table:number-columns-repeated="3"/>
@@ -620,13 +442,13 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="2" table:number-rows-spanned="1"/>
      <table:covered-table-cell/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$rekv_nalog2.'</text:p>
+      <text:p>, IРџРќ:394737511235</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="5"/>
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="3" table:number-rows-spanned="1"/>
      <table:covered-table-cell table:number-columns-repeated="2"/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$rekv_nalog2.'</text:p>
+      <text:p>, IРџРќ:394737511235</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="2" table:style-name="Default"/>
      <table:covered-table-cell table:number-columns-repeated="3"/>
@@ -636,13 +458,13 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="2" table:number-rows-spanned="1"/>
      <table:covered-table-cell/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$rekv_nalog3.'</text:p>
+      <text:p>РђРґСЂРµСЃР°: Рј. РљiСЂРѕРІРѕРіСЂР°Рґ, РІСѓР». Р’РµР»РёРєР° РџРµСЂСЃРїРµРєС‚РёРІРЅР° 17</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="5"/>
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="3" table:number-rows-spanned="1"/>
      <table:covered-table-cell table:number-columns-repeated="2"/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$rekv_nalog3.'</text:p>
+      <text:p>РђРґСЂРµСЃР°: Рј. РљiСЂРѕРІРѕРіСЂР°Рґ, РІСѓР». Р’РµР»РёРєР° РџРµСЂСЃРїРµРєС‚РёРІРЅР° 17</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="2" table:style-name="Default"/>
      <table:covered-table-cell table:number-columns-repeated="3"/>
@@ -652,14 +474,14 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="2" table:number-rows-spanned="1"/>
      <table:covered-table-cell/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$rekv_bank1.'</text:p>
+      <text:p>РџР»Р°С‚С–Р¶РЅС– СЂРµРєРІС–Р·РёС‚Рё:РљР¤ РљР‘ "РџСЂРёРІР°С‚ Р‘Р°РЅРє"</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="5"/>
      <table:table-cell/>
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="2" table:number-rows-spanned="1"/>
      <table:covered-table-cell/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$rekv_bank1.'</text:p>
+      <text:p>РџР»Р°С‚С–Р¶РЅС– СЂРµРєРІС–Р·РёС‚Рё:РљР¤ РљР‘ "РџСЂРёРІР°С‚ Р‘Р°РЅРє"</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="2" table:style-name="Default"/>
      <table:covered-table-cell table:number-columns-repeated="3"/>
@@ -670,7 +492,7 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:covered-table-cell/>
      <table:table-cell table:style-name="ce6"/>
      <table:table-cell table:style-name="ce15" office:value-type="string" table:number-columns-spanned="5" table:number-rows-spanned="1">
-      <text:p><text:span text:style-name="T1">'.$rekv_bank2.'</text:span></text:p>
+      <text:p><text:span text:style-name="T1">РњР¤Рћ:323583 p/СЂ:26002052910637</text:span></text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="4"/>
      <table:table-cell/>
@@ -678,7 +500,7 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:covered-table-cell/>
      <table:table-cell table:style-name="ce6"/>
      <table:table-cell table:style-name="ce15" office:value-type="string" table:number-columns-spanned="5" table:number-rows-spanned="1">
-      <text:p><text:span text:style-name="T1">'.$rekv_bank2.'</text:span></text:p>
+      <text:p><text:span text:style-name="T1">РњР¤Рћ:323583 p/СЂ:26002052910637</text:span></text:p>
      </table:table-cell>
      <table:covered-table-cell table:style-name="Default"/>
      <table:covered-table-cell table:number-columns-repeated="3"/>
@@ -686,89 +508,129 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
     </table:table-row>
     <table:table-row table:style-name="ro3">
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="2" table:number-rows-spanned="1">
-      <text:p>Платник:</text:p>
+      <text:p>РџР»Р°С‚РЅРёРє:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:style-name="ce7"/>
      <table:table-cell table:style-name="ce12" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$nm_klient.'</text:p>
+      <text:p>РџРџ РђР“Р РћР“Р РЈРџ-Р‘Р Р’</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="5" table:style-name="ce16"/>
      <table:table-cell table:style-name="ce22"/>
      <table:table-cell table:style-name="ce12" office:value-type="string" table:number-columns-spanned="2" table:number-rows-spanned="1">
-      <text:p>Платник:</text:p>
+      <text:p>РџР»Р°С‚РЅРёРє:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:style-name="ce16"/>
      <table:table-cell table:style-name="ce12" office:value-type="string" table:number-columns-spanned="6" table:number-rows-spanned="1">
-      <text:p>'.$nm_klient.'</text:p>
+      <text:p>РџРџ РђР“Р РћР“Р РЈРџ-Р‘Р Р’</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="5" table:style-name="ce16"/>
      <table:table-cell/>
     </table:table-row>
     <table:table-row table:style-name="ro4">
      <table:table-cell table:style-name="ce3" office:value-type="string" table:number-columns-spanned="8" table:number-rows-spanned="1">
-      <text:p>Рахунок №_'.$nom_doc.' <text:s/>від: '.$data_doc.' p.</text:p>
+      <text:p>Р Р°С…СѓРЅРѕРє в„–_РЎР¤- 679 <text:s/>РІС–Рґ: 18.10.19 p.</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="7" table:style-name="ce8"/>
      <table:table-cell table:style-name="ce23"/>
      <table:table-cell table:style-name="ce3" office:value-type="string" table:number-columns-spanned="8" table:number-rows-spanned="1">
-      <text:p>Рахунок №_'.$nom_doc.' <text:s/>від: '.$data_doc.' p.</text:p>
+      <text:p>Р Р°С…СѓРЅРѕРє в„–_РЎР¤- 679 <text:s/>РІС–Рґ: 18.10.19 p.</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="7" table:style-name="ce8"/>
      <table:table-cell/>
     </table:table-row>
     <table:table-row table:style-name="ro5">
      <table:table-cell table:style-name="ce4" office:value-type="string">
-      <text:p>№</text:p>
+      <text:p>в„–</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce9" office:value-type="string" table:number-columns-spanned="3" table:number-rows-spanned="1">
-      <text:p>Найменування товару</text:p>
+      <text:p>РќР°Р№РјРµРЅСѓРІР°РЅРЅСЏ С‚РѕРІР°СЂСѓ</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="2" table:style-name="ce13"/>
      <table:table-cell table:style-name="ce9" office:value-type="string">
-      <text:p>Од.</text:p>
+      <text:p>РћРґ.</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce9" office:value-type="string">
-      <text:p>К-ть</text:p>
+      <text:p>Рљ-С‚СЊ</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce18" office:value-type="string">
-      <text:p>Ціна без ПДВ</text:p>
+      <text:p>Р¦С–РЅР° Р±РµР· РџР”Р’</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce20" office:value-type="string">
-      <text:p>Сума без ПДВ</text:p>
+      <text:p>РЎСѓРјР° Р±РµР· РџР”Р’</text:p>
      </table:table-cell>
      <table:table-cell/>
      <table:table-cell table:style-name="ce4" office:value-type="string">
-      <text:p>№</text:p>
+      <text:p>в„–</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce9" office:value-type="string" table:number-columns-spanned="3" table:number-rows-spanned="1">
-      <text:p>Найменування товару</text:p>
+      <text:p>РќР°Р№РјРµРЅСѓРІР°РЅРЅСЏ С‚РѕРІР°СЂСѓ</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="2" table:style-name="ce13"/>
      <table:table-cell table:style-name="ce9" office:value-type="string">
-      <text:p>Од.</text:p>
+      <text:p>РћРґ.</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce9" office:value-type="string">
-      <text:p>К-ть</text:p>
+      <text:p>Рљ-С‚СЊ</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce18" office:value-type="string">
-      <text:p>Ціна без ПДВ</text:p>
+      <text:p>Р¦С–РЅР° Р±РµР· РџР”Р’</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce20" office:value-type="string">
-      <text:p>Сума без ПДВ</text:p>
+      <text:p>РЎСѓРјР° Р±РµР· РџР”Р’</text:p>
      </table:table-cell>
      <table:table-cell/>
-    </table:table-row>';
-
-     $end = '    <table:table-row table:style-name="ro3">
+    </table:table-row>    <table:table-row table:style-name="ro3">  
+     <table:table-cell office:value-type="string">
+      <text:p>1</text:p>
+     </table:table-cell>
+     <table:table-cell table:style-name="ce10" office:value-type="string" table:number-columns-spanned="3" table:number-rows-spanned="1">
+      <text:p>Р‘СѓРјР°РіР° Рђ4 РЎ 80Рі/Рј2 (500Р») ##</text:p>
+     </table:table-cell>
+     <table:covered-table-cell/>
+     <table:covered-table-cell table:style-name="ce14"/>
+     <table:table-cell table:style-name="ce17" office:value-type="string">
+      <text:p>С€С‚.</text:p>
+     </table:table-cell>
+     <table:table-cell table:style-name="ce17" office:value-type="string">
+      <text:p>5</text:p>
+     </table:table-cell>
+     <table:table-cell table:style-name="ce19" office:value-type="string">
+      <text:p>66.25</text:p>
+     </table:table-cell>
+     <table:table-cell table:style-name="ce17" office:value-type="string">
+      <text:p>331.25</text:p>
+     </table:table-cell>
+     <table:table-cell/>
+     <table:table-cell table:style-name="ce5" office:value-type="string">
+      <text:p>1</text:p>
+     </table:table-cell>
+     <table:table-cell table:style-name="ce10" office:value-type="string" table:number-columns-spanned="3" table:number-rows-spanned="1">
+      <text:p>Р‘СѓРјР°РіР° Рђ4 РЎ 80Рі/Рј2 (500Р») ##</text:p>
+     </table:table-cell>
+     <table:covered-table-cell table:number-columns-repeated="2"/>
+     <table:table-cell office:value-type="string">
+      <text:p>С€С‚.</text:p>
+     </table:table-cell>
+     <table:table-cell table:style-name="ce17" office:value-type="string">
+      <text:p>5</text:p>
+     </table:table-cell>
+     <table:table-cell table:style-name="ce19" office:value-type="string">
+      <text:p>66.25</text:p>
+     </table:table-cell>
+     <table:table-cell table:style-name="ce17" office:value-type="string">
+      <text:p>331.25</text:p>
+     </table:table-cell>
+     <table:table-cell/>
+    </table:table-row>    <table:table-row table:style-name="ro3">
      <table:table-cell table:style-name="ce6" table:number-columns-repeated="3"/>
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="5" table:number-rows-spanned="1">
-      <text:p>'.$txtskidka.'</text:p>
+      <text:p></text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="4" table:style-name="ce7"/>
      <table:table-cell/>
      <table:table-cell table:style-name="ce6" table:number-columns-repeated="3"/>
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="5" table:number-rows-spanned="1">
-      <text:p>'.$txtskidka.'</text:p>
+      <text:p></text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="4" table:style-name="ce7"/>
      <table:table-cell/>
@@ -778,21 +640,21 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:covered-table-cell/>
      <table:covered-table-cell table:style-name="Default"/>
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="4" table:number-rows-spanned="1">
-      <text:p>Разом без ПДВ:</text:p>
+      <text:p>Р Р°Р·РѕРј Р±РµР· РџР”Р’:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="3" table:style-name="ce7"/>
      <table:table-cell table:style-name="ce21" office:value-type="string">
-      <text:p>'.$sum.'</text:p>
+      <text:p>331.25</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="4" table:number-rows-spanned="1"/>
      <table:covered-table-cell table:number-columns-repeated="2"/>
      <table:covered-table-cell table:style-name="Default"/>
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="4" table:number-rows-spanned="1">
-      <text:p>Разом без ПДВ:</text:p>
+      <text:p>Р Р°Р·РѕРј Р±РµР· РџР”Р’:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="3" table:style-name="ce7"/>
      <table:table-cell table:style-name="ce21" office:value-type="string">
-      <text:p>'.$sum.'</text:p>
+      <text:p>331.25</text:p>
      </table:table-cell>
      <table:table-cell/>
     </table:table-row>
@@ -801,21 +663,21 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:covered-table-cell/>
      <table:covered-table-cell table:style-name="Default"/>
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="4" table:number-rows-spanned="1">
-      <text:p>ПДВ:</text:p>
+      <text:p>РџР”Р’:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="3" table:style-name="ce7"/>
      <table:table-cell table:style-name="ce21" office:value-type="string">
-      <text:p>'.$sum_nds.'</text:p>
+      <text:p>66.25</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="4" table:number-rows-spanned="1"/>
      <table:covered-table-cell table:number-columns-repeated="2"/>
      <table:covered-table-cell table:style-name="Default"/>
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="4" table:number-rows-spanned="1">
-      <text:p>ПДВ:</text:p>
+      <text:p>РџР”Р’:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="3" table:style-name="ce7"/>
      <table:table-cell table:style-name="ce21" office:value-type="string">
-      <text:p>'.$sum_nds.'</text:p>
+      <text:p>66.25</text:p>
      </table:table-cell>
      <table:table-cell/>
     </table:table-row>
@@ -824,21 +686,21 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:covered-table-cell/>
      <table:covered-table-cell table:style-name="Default"/>
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="4" table:number-rows-spanned="1">
-      <text:p>Всього з ПДВ:</text:p>
+      <text:p>Р’СЃСЊРѕРіРѕ Р· РџР”Р’:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="3" table:style-name="ce7"/>
      <table:table-cell table:style-name="ce21" office:value-type="string">
-      <text:p>'.$sum_s_nds.'</text:p>
+      <text:p>397.5</text:p>
      </table:table-cell>
      <table:table-cell table:style-name="ce2" table:number-columns-spanned="4" table:number-rows-spanned="1"/>
      <table:covered-table-cell table:number-columns-repeated="2"/>
      <table:covered-table-cell table:style-name="Default"/>
      <table:table-cell table:style-name="ce1" office:value-type="string" table:number-columns-spanned="4" table:number-rows-spanned="1">
-      <text:p>Всього з ПДВ:</text:p>
+      <text:p>Р’СЃСЊРѕРіРѕ Р· РџР”Р’:</text:p>
      </table:table-cell>
      <table:covered-table-cell table:number-columns-repeated="3" table:style-name="ce7"/>
      <table:table-cell table:style-name="ce21" office:value-type="string">
-      <text:p>'.$sum_s_nds.'</text:p>
+      <text:p>397.5</text:p>
      </table:table-cell>
      <table:table-cell/>
     </table:table-row>
@@ -856,7 +718,7 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
     </table:table-row>
     <table:table-row table:style-name="ro3">
      <table:table-cell table:style-name="ce1" office:value-type="string">
-      <text:p>Рахунок склав:________________</text:p>
+      <text:p>Р Р°С…СѓРЅРѕРє СЃРєР»Р°РІ:________________</text:p>
      </table:table-cell>
      <table:table-cell/>
      <table:table-cell table:style-name="Default"/>
@@ -865,7 +727,7 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
      <table:table-cell table:number-columns-repeated="3"/>
      <table:table-cell table:style-name="Default"/>
      <table:table-cell table:style-name="ce1" office:value-type="string">
-      <text:p>Рахунок склав:____________________</text:p>
+      <text:p>Р Р°С…СѓРЅРѕРє СЃРєР»Р°РІ:____________________</text:p>
      </table:table-cell>
      <table:table-cell/>
      <table:table-cell table:style-name="Default"/>
@@ -887,14 +749,14 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
     </table:table-row>
     <table:table-row table:style-name="ro2">
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="8" table:number-rows-spanned="1">
-      <text:p>Рахунок необхiдно сплатити протягом трьох днiв. У разi невиконання, фiрма</text:p>
+      <text:p>Р Р°С…СѓРЅРѕРє РЅРµРѕР±С…iРґРЅРѕ СЃРїР»Р°С‚РёС‚Рё РїСЂРѕС‚СЏРіРѕРј С‚СЂСЊРѕС… РґРЅiРІ. РЈ СЂР°Р·i РЅРµРІРёРєРѕРЅР°РЅРЅСЏ, С„iСЂРјР°</text:p>
      </table:table-cell>
      <table:covered-table-cell/>
      <table:covered-table-cell table:style-name="Default"/>
      <table:covered-table-cell table:number-columns-repeated="5"/>
      <table:table-cell/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="8" table:number-rows-spanned="1">
-      <text:p>Рахунок необхiдно сплатити протягом трьох днiв. У разi невиконання, фiрма</text:p>
+      <text:p>Р Р°С…СѓРЅРѕРє РЅРµРѕР±С…iРґРЅРѕ СЃРїР»Р°С‚РёС‚Рё РїСЂРѕС‚СЏРіРѕРј С‚СЂСЊРѕС… РґРЅiРІ. РЈ СЂР°Р·i РЅРµРІРёРєРѕРЅР°РЅРЅСЏ, С„iСЂРјР°</text:p>
      </table:table-cell>
      <table:covered-table-cell/>
      <table:covered-table-cell table:number-columns-repeated="3" table:style-name="Default"/>
@@ -903,14 +765,14 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
     </table:table-row>
     <table:table-row table:style-name="ro2">
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="8" table:number-rows-spanned="1">
-      <text:p>має право змiнити цiну на товар i не гарантує його наявнiсть на складi</text:p>
+      <text:p>РјР°С” РїСЂР°РІРѕ Р·РјiРЅРёС‚Рё С†iРЅСѓ РЅР° С‚РѕРІР°СЂ i РЅРµ РіР°СЂР°РЅС‚СѓС” Р№РѕРіРѕ РЅР°СЏРІРЅiСЃС‚СЊ РЅР° СЃРєР»Р°Рґi</text:p>
      </table:table-cell>
      <table:covered-table-cell/>
      <table:covered-table-cell table:style-name="Default"/>
      <table:covered-table-cell table:number-columns-repeated="5"/>
      <table:table-cell/>
      <table:table-cell table:style-name="ce2" office:value-type="string" table:number-columns-spanned="8" table:number-rows-spanned="1">
-      <text:p>має право змiнити цiну на товар i не гарантує його наявнiсть на складi</text:p>
+      <text:p>РјР°С” РїСЂР°РІРѕ Р·РјiРЅРёС‚Рё С†iРЅСѓ РЅР° С‚РѕРІР°СЂ i РЅРµ РіР°СЂР°РЅС‚СѓС” Р№РѕРіРѕ РЅР°СЏРІРЅiСЃС‚СЊ РЅР° СЃРєР»Р°Рґi</text:p>
      </table:table-cell>
      <table:covered-table-cell/>
      <table:covered-table-cell table:number-columns-repeated="3" table:style-name="Default"/>
@@ -925,19 +787,10 @@ function strfile($f,$id_doc, $sum, $sum_nds, $sum_s_nds,$skidka ){
     </table:table-row>
    </table:table>
    <table:named-expressions>
-    <table:named-range table:name="HTML_1" table:base-cell-address="$Лист1.$A$1" table:cell-range-address=".$A$1:.$R$29"/>
-    <table:named-range table:name="HTML_all" table:base-cell-address="$Лист1.$A$1" table:cell-range-address=".$A$1:.$R$29"/>
-    <table:named-range table:name="HTML_tables" table:base-cell-address="$Лист1.$A$1" table:cell-range-address=".$A$1:.$A$1"/>
+    <table:named-range table:name="HTML_1" table:base-cell-address="$Р›РёСЃС‚1.$A$1" table:cell-range-address=".$A$1:.$R$29"/>
+    <table:named-range table:name="HTML_all" table:base-cell-address="$Р›РёСЃС‚1.$A$1" table:cell-range-address=".$A$1:.$R$29"/>
+    <table:named-range table:name="HTML_tables" table:base-cell-address="$Р›РёСЃС‚1.$A$1" table:cell-range-address=".$A$1:.$A$1"/>
    </table:named-expressions>
   </office:spreadsheet>
  </office:body>
-</office:document>';
-
- if($f=='start')     return cnv_ ( $start) ;
- if($f=='end')       return cnv_ ( $end );
-
-}
-
-
-
-?>
+</office:document>

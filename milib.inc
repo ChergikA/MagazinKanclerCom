@@ -14,7 +14,14 @@ function cnv_($str){
     return $str ;
 }
 
-
+function prn_catalog(){
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        return '_prn';
+    } else {
+        //echo 'Сервер работает под управлением ОС, отличной от Windows!';
+        return 'prn';
+    }
+}
 //***********************************  baba-jaga@i.ua  ********************************************************
 // отдаем имя юзера
 function name_user(){

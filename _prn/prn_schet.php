@@ -174,10 +174,10 @@ function strfile($f,$id_doc,$sum_itog, $sum_vsego){
     
     //echo '<br>' . $rekv_nalog.'<br>';
     
-    $rekv_bank = ' '. $s_arr['name_bank'] . 
-                       ' ÌÔÎ:' . $s_arr['mfo_bank'] .
-                       ' Ğ/ğ:' . $s_arr['r_schet'] ;
-     //	Ïëàò³æí³ ğåêâ³çèòè: ÏÀÒ ÊÁ "ÏĞÈÂÀÒÁÀÍÊ"   ÌÔÎ: 305299 Ğ/ğ: 26003050242818 
+    $rekv_bank = ' '. $s_arr['name_bank'] . ' ÌÔÎ: ' . $s_arr['mfo_bank'] ;
+    $rahunok = '    Ğ/ğ: ' . $s_arr['r_schet'] ;
+    
+    //	Ïëàò³æí³ ğåêâ³çèòè: ÏÀÒ ÊÁ "ÏĞÈÂÀÒÁÀÍÊ"   ÌÔÎ: 305299 Ğ/ğ: 26003050242818 
     //echo '<br>' . $rekv_bank.'<br>';
     
    $start = '<?xml version="1.0" encoding="UTF-8"?>
@@ -834,6 +834,7 @@ function strfile($f,$id_doc,$sum_itog, $sum_vsego){
      <table:table-cell table:number-columns-repeated="239"/>
      <table:table-cell table:style-name="ce1" table:number-columns-repeated="768"/>
     </table:table-row>
+    
     <table:table-row table:style-name="ro4">
      <table:table-cell table:style-name="ce2"/>
      <table:table-cell table:style-name="ce12" office:value-type="string" table:number-columns-spanned="7" table:number-rows-spanned="1">
@@ -848,6 +849,22 @@ function strfile($f,$id_doc,$sum_itog, $sum_vsego){
      <table:table-cell table:number-columns-repeated="239"/>
      <table:table-cell table:style-name="ce1" table:number-columns-repeated="768"/>
     </table:table-row>
+    
+    <table:table-row table:style-name="ro4">
+     <table:table-cell table:style-name="ce2"/>
+     <table:table-cell table:style-name="ce12" office:value-type="string" table:number-columns-spanned="7" table:number-rows-spanned="1">
+      <text:p>'.$rahunok .'</text:p>
+     </table:table-cell>
+     <table:covered-table-cell table:number-columns-repeated="6" table:style-name="ce17"/>
+     <table:table-cell table:style-name="ce2" table:number-columns-repeated="2"/>
+     <table:table-cell table:style-name="ce12" office:value-type="string" table:number-columns-spanned="7" table:number-rows-spanned="1">
+      <text:p>'.$rahunok .'</text:p>
+     </table:table-cell>
+     <table:covered-table-cell table:number-columns-repeated="6" table:style-name="ce17"/>
+     <table:table-cell table:number-columns-repeated="239"/>
+     <table:table-cell table:style-name="ce1" table:number-columns-repeated="768"/>
+    </table:table-row>
+
     <table:table-row table:style-name="ro5">
      <table:table-cell table:style-name="ce2"/>
      <table:table-cell table:style-name="ce2" office:value-type="string">
